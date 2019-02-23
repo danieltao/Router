@@ -33,6 +33,11 @@
 /* forward declare */
 struct sr_if;
 struct sr_rt;
+#define DEST_NET_UNREACHABLE   1
+#define DEST_HOST_UNREACHABLE  2
+#define PORT_UNREACHABLE       3
+#define TTL_EXCEEDED           4
+
 
 /* ----------------------------------------------------------------------------
  * struct sr_instance

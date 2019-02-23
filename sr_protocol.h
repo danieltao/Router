@@ -83,7 +83,7 @@ struct sr_icmp_hdr {
   uint8_t icmp_type;
   uint8_t icmp_code;
   uint16_t icmp_sum;
-  
+  uint32_t unused;
 } __attribute__ ((packed)) ;
 typedef struct sr_icmp_hdr sr_icmp_hdr_t;
 
@@ -148,10 +148,10 @@ struct sr_ethernet_hdr
 } __attribute__ ((packed)) ;
 typedef struct sr_ethernet_hdr sr_ethernet_hdr_t;
 
-
-
 enum sr_ip_protocol {
-  ip_protocol_icmp = 0x0001,
+  ip_protocol_icmp = 0x01,
+  ip_protocol_tcp = 0x06,
+  ip_protocol_udp = 0x11,
 };
 
 enum sr_ethertype {
@@ -163,6 +163,10 @@ enum sr_ethertype {
 enum sr_arp_opcode {
   arp_op_request = 0x0001,
   arp_op_reply = 0x0002,
+};
+
+enum sr_arp_pro_fmt {
+  arp_pro_ip = 0x0800,
 };
 
 enum sr_arp_hrd_fmt {
