@@ -16,6 +16,11 @@
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
 
+#define TTL_EXCEEDED           1
+#define DEST_HOST_UNREACHABLE  2
+#define DEST_NET_UNREACHABLE   3
+#define PORT_UNREACHABLE       4
+
 /* we dont like this debug , but what to do for varargs ? */
 #ifdef _DEBUG_
 #define Debug(x, args...) printf(x, ## args)
@@ -33,10 +38,7 @@
 /* forward declare */
 struct sr_if;
 struct sr_rt;
-#define DEST_NET_UNREACHABLE   1
-#define DEST_HOST_UNREACHABLE  2
-#define PORT_UNREACHABLE       3
-#define TTL_EXCEEDED           4
+
 
 
 /* ----------------------------------------------------------------------------

@@ -12,61 +12,28 @@
 #include "sr_protocol.h"
 #include "sr_utils.h"
 
-/* 
-  This function gets called every second. For each request sent out, we keep
-  checking whether we should resend an request or destroy the arp request.
-  See the comments in the header file for an idea of what it should look like.
-*/
-void sr_arpcache_send_all_exceptions(struct sr_instance *sr,
-		struct sr_packet* pac) {
-	if (pac == NULL) return;
-	sr_arpcache_send_all_exceptions(sr, pac->next);
 
-	sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)(pac->buf);
-	sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(pac->buf + sizeof(sr_ethernet_hdr_t));
-	send_icmp_exception(sr, ip_hdr->ip_src, eth_hdr->ether_shost, htons(ip_hdr->ip_id) + 1, pac->buf + sizeof(sr_ethernet_hdr_t), htons(ip_hdr->ip_len), DEST_HOST_UNREACHABLE);
-}
-
-void sr_arpcache_send_all_pacs(struct sr_instance* sr,
-		struct sr_packet* pac) {
-	if (pac == NULL) return;
-	sr_arpcache_send_all_pacs(sr, pac->next);
-
-	fprintf(stderr, "Sending packet in queue (");
-	sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(pac->buf + sizeof(sr_ethernet_hdr_t));
-	fprintf(stderr, "Source: ");
-	print_addr_ip_int(ntohl(ip_hdr->ip_src));
-	fprintf(stderr, " Target: ");
-	print_addr_ip_int(ntohl(ip_hdr->ip_dst));
-	fprintf(stderr, " ID: %u)...\n", htons(ip_hdr->ip_id));
-
-	forward_pac(sr, pac->buf, pac->len);
-}
-
-void sr_handle_arpreq(struct sr_instance *sr, struct sr_arpreq* req) {
-	time_t curtime = time(NULL);
-	if (difftime(curtime, req->sent) > 0.99)	{
-		if (req->times_sent >= 5) {
-			print_addr_ip_int(ntohl(req->ip));
-			fprintf(stderr, " didn't respond to 5 ARP requests, all queued packets were dropped!\n");
-			sr_arpcache_send_all_exceptions(sr, req->packets);
-			sr_arpreq_destroy(&(sr->cache), req);
-		} else {
-			int res = send_arp_request(sr, req->ip);
-			if (res != 0) {
-				struct sr_packet* pac;
-				for (pac = req->packets; pac != NULL; pac = pac->next) {
-					sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)(pac->buf);
-					sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(pac->buf + sizeof(sr_ethernet_hdr_t));
-					send_icmp_exception(sr, ip_hdr->ip_src, eth_hdr->ether_shost, htons(ip_hdr->ip_id) + 1, pac->buf + sizeof(sr_ethernet_hdr_t), htons(ip_hdr->ip_len), res);
-				}
-				sr_arpreq_destroy(&(sr->cache), req);
-			}
-			req->sent = curtime;
-			req->times_sent++;
-		}
+void send_all_pacs(struct sr_instance* sr,
+		struct sr_packet* packet) {
+	if (packet == NULL){
+		return;
 	}
+	send_all_pacs(sr, packet->next);
+	forward(sr, packet->buf, packet->len);
 }
+
+void send_all_exceptions(struct sr_instance *sr,
+		struct sr_packet* packet) {
+	if (packet == NULL) {
+		return;
+	}
+	send_all_exceptions(sr, packet->next);
+	sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet->buf + sizeof(sr_ethernet_hdr_t));
+	sr_ethernet_hdr_t *ether_hdr = (sr_ethernet_hdr_t *)(packet->buf);
+	send_icmp_error(sr, ip_hdr->ip_src, ether_hdr->ether_shost, htons(ip_hdr->ip_id) + 1, packet->buf + sizeof(sr_ethernet_hdr_t), htons(ip_hdr->ip_len), DEST_HOST_UNREACHABLE);
+}
+
+
 
 /*
   This function gets called every second. For each request sent out, we keep
@@ -74,11 +41,30 @@ void sr_handle_arpreq(struct sr_instance *sr, struct sr_arpreq* req) {
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-	struct sr_arpreq *req;
-    for (req = sr->cache.requests; req != NULL;) {
-		struct sr_arpreq *next = req->next;
-		sr_handle_arpreq(sr, req);
-		req = next;
+	struct sr_arpreq *temp;
+    for (temp = sr->cache.requests; temp != NULL;) {
+		struct sr_arpreq *next = temp->next;
+		time_t curr = time(NULL);
+		if (difftime(curr, temp->sent) >=1)	{
+			if (temp->times_sent < 5) {
+				int res = send_arp_request(sr, temp->ip);
+				if (res != 0) {
+					struct sr_packet* packet;
+					for (packet = temp->packets; packet != NULL; packet = packet->next) {
+						sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet->buf + sizeof(sr_ethernet_hdr_t));
+						sr_ethernet_hdr_t *ether_hdr = (sr_ethernet_hdr_t *)(packet->buf);
+						send_icmp_error(sr, ip_hdr->ip_src, ether_hdr->ether_shost, htons(ip_hdr->ip_id) + 1, sizeof(sr_ethernet_hdr_t)+packet->buf, htons(ip_hdr->ip_len), res);
+					}
+					sr_arpreq_destroy(&(sr->cache), temp);
+				}
+				temp->sent = curr;
+				temp->times_sent++;
+			} else {
+				send_all_exceptions(sr, temp->packets);
+				sr_arpreq_destroy(&(sr->cache), temp);
+			}
+		}
+		temp = next;
 	}
 }
 

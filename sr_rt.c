@@ -177,18 +177,4 @@ void sr_print_routing_entry(struct sr_rt* entry)
 
 } /* -- sr_print_routing_entry -- */
 
-struct sr_rt *sr_longest_prefix_match(struct sr_instance* sr, uint32_t ip)
-{
-	struct in_addr addr;
-	addr.s_addr = ip;
-	struct sr_rt *rt, *ans = NULL;
-	unsigned long maxl = 0;
 
-	for (rt = sr->routing_table; rt != NULL; rt = rt->next) {
-		if (((rt->dest.s_addr & rt->mask.s_addr) == (addr.s_addr & rt->mask.s_addr)) && (maxl <= rt->mask.s_addr)) {
-			maxl = rt->mask.s_addr;
-			ans = rt;
-		}
-	}
-	return ans;
-}
