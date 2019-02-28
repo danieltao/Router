@@ -346,7 +346,7 @@ int forward(struct sr_instance *sr,
 					for (packet = temp->packets; packet != NULL; packet = packet->next) {
 						sr_ethernet_hdr_t *ether_hdr = (sr_ethernet_hdr_t *)(packet->buf);
 						sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet->buf + sizeof(sr_ethernet_hdr_t));
-						send_icmp_error(sr, ip_hdr->ip_src, ether_hdr->ether_shost, htons(ip_hdr->ip_id) + 1, sizeof(sr_ethernet_hdr_t)+packet->buf, htons(ip_hdr->ip_len), res);
+						send_icmp_error(sr, htons(ip_hdr->ip_id) + 1, sizeof(sr_ethernet_hdr_t)+packet->buf, htons(ip_hdr->ip_len), res, ip_hdr->ip_src, ether_hdr->ether_shost);
 					}
 					sr_arpreq_destroy(&(sr->cache), temp);
 				}
